@@ -1,4 +1,5 @@
-namespace Sila.Models.Database {
+namespace Sila.Models.Database
+{
 	using System;
 
 	/// <summary>
