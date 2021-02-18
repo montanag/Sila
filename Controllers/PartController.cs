@@ -86,13 +86,69 @@ namespace Sila.Controllers
 		/// </summary>
 		/// <returns>A task containing an HTTP response with the parts.</returns>
 		[HttpGet]
-		public async Task<IActionResult> GetParts()
+		public async Task<IActionResult> GetParts([FromQuery] Boolean componentPartsOnly, [FromQuery] Boolean orphanPartsOnly)
 		{
-			// Get the parts as a list
-			List<Part> parts = await _mongoDbService.GetCollection<Part>(nameof(Part)).ToListAsync();
+			// Get the parts as a mongo queryable
+			IMongoQueryable<Part>? parts = _mongoDbService.GetCollection<Part>(nameof(Part));
 
-			// Return the parts
-			return Ok(parts);
+			if (componentPartsOnly && orphanPartsOnly)
+			{
+				return BadRequest($"Please specify true for only one of {nameof(componentPartsOnly)} or {nameof(orphanPartsOnly)}.");
+			}
+			else if (componentPartsOnly)
+			{
+				return Ok(await parts.Where(part => part.ParentAssemblyId != null).ToListAsync().ConfigureAwait(false));
+			}
+			else if (orphanPartsOnly)
+			{
+				return Ok(await parts.Where(part => part.ParentAssemblyId == null).ToListAsync().ConfigureAwait(false));
+			}
+			else
+			{
+				return Ok(await parts.ToListAsync().ConfigureAwait(false));
+			}
+		}
+
+		/// <summary>
+		/// Get all the parent assemblies for a part.
+		/// </summary>
+		/// <param name="id">The ID of the part.</param>
+		/// <returns>A task containing an HTTP response.</returns>
+		[HttpGet("{id}/parent")]
+		public async Task<IActionResult> GetParentAssemblies(String id)
+		{
+			// Get the first parent ID
+			String? parentId = await _mongoDbService.GetCollection<Part>(nameof(Part)).Where(part => part.Id == id).Select(part => part.ParentAssemblyId).FirstOrDefaultAsync().ConfigureAwait(false);
+
+			// Instantiate the list of parents
+			List<String> parents = new();
+
+			// While the current parent is not null, look for the next parent
+			while (parentId != null)
+			{
+				parents.Add(parentId);
+
+				parentId = await _mongoDbService.GetCollection<Assembly>(nameof(Assembly)).Where(assembly => assembly.Id == parentId).Select(assembly => assembly.ParentAssemblyId).FirstOrDefaultAsync().ConfigureAwait(false);
+			}
+
+			// Return the parents
+			return Ok(parents);
+		}
+
+		/// <summary>
+		/// Update the parent of a part.
+		/// </summary>
+		/// <param name="id">The ID of a part to update.</param>
+		/// <param name="updateParentRequest">The update parent request.</param>
+		/// <returns>A task containing an HTTP response.</returns>
+		[HttpPut("{id}")]
+		public async Task<IActionResult> UpdateParent(String id, [FromBody] UpdateParentRequest updateParentRequest)
+		{
+			// Add the parent ID to the part
+			await _mongoDbService.AddPropertyToObject<Assembly, String?>(nameof(Part), part => part.Id == id, null, nameof(Part.ParentAssemblyId), updateParentRequest.ParentAssemblyId);
+
+			// Return an OK response
+			return Ok();
 		}
 	}
 }

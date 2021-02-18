@@ -10,7 +10,7 @@ namespace Sila.Models.Rest.Requests
 		/// <summary>
 		/// The name of the part.
 		/// </summary>
-		public String Name { get; set; }
+		public String Name { get; }
 
 		/// <summary>
 		/// The color of the part.
@@ -21,5 +21,14 @@ namespace Sila.Models.Rest.Requests
 		/// The material of the part.
 		/// </summary>
 		public String? Material { get; set; }
+
+		/// <summary>
+		/// Instantiate a create part request.
+		/// </summary>
+		/// <param name="name">The name of the part.</param>
+		public CreatePartRequest(String name)
+		{
+			Name = name;
+		}
 	}
 }
