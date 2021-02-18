@@ -6,6 +6,10 @@ namespace Sila
 	using Microsoft.Extensions.Configuration;
 	using Microsoft.Extensions.DependencyInjection;
 	using Microsoft.Extensions.Hosting;
+	using MongoDB.Bson;
+	using MongoDB.Bson.Serialization;
+	using MongoDB.Bson.Serialization.Serializers;
+	using Sila.Models.Database;
 	using Sila.Options;
 	using Sila.Services.MongoDb;
 
@@ -52,6 +56,37 @@ namespace Sila
 			// Add services
 			services.AddTransient<IMongoDbService, MongoDbService>();
 			services.AddSingleton(mongoDbOptions);
+
+			// TODO: Move all mappings to a util class
+			BsonClassMap.RegisterClassMap<AssemblyOrPart>(classMap =>
+			{
+				// First enact the default mapping
+				classMap.AutoMap();
+				// Set the BSON ID serializer so that the ID string is serialized as an object ID
+				classMap.IdMemberMap.SetSerializer(new StringSerializer(BsonType.ObjectId));
+				// Map fields that do not have a public setter and are not the ID so that BSON knows about them
+				classMap.MapMember(assemblyOrPart => assemblyOrPart.Name);
+				// Set this as the root class
+				classMap.SetIsRootClass(true);
+			});
+
+			// TODO: Move all mappings to a util class
+			BsonClassMap.RegisterClassMap<Assembly>(classMap =>
+			{
+				// First enact the default mapping
+				classMap.AutoMap();
+				// Set the BSON creator to use
+				classMap.MapCreator(assembly => new Assembly(assembly.Id, assembly.Name));
+			});
+
+			// TODO: Move all mappings to a util class
+			BsonClassMap.RegisterClassMap<Part>(classMap =>
+			{
+				// First enact the default mapping
+				classMap.AutoMap();
+				// Set the BSON creator to use
+				classMap.MapCreator(part => new Part(part.Id, part.Name));
+			});
 		}
 
 		/// <summary>
